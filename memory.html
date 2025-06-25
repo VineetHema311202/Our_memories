@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Memories</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      background-color: #fff0f5;
+      overflow-x: hidden;
+    }
+
+    .hearts-bg {
+      position: fixed;
+      width: 100%;
+      height: 100%;
+      top: 0; left: 0;
+      z-index: -2;
+      background-image: repeating-linear-gradient(
+        to bottom,
+        transparent,
+        transparent 20px,
+        rgba(255, 192, 203, 0.3) 180px,
+        rgba(255, 192, 203, 0.3) 200px
+      );
+    }
+
+    .hearts {
+      position: fixed;
+      width: 100%;
+      height: 100%;
+      top: 0; left: 0;
+      z-index: -1;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .hearts::before, .hearts::after {
+      content: "💗 💕 💖 💘 💝";
+      font-size: 2rem;
+      position: absolute;
+      animation: floatHearts 12s linear infinite;
+      opacity: 0.2;
+    }
+
+    @keyframes floatHearts {
+      0% { top: 100%; transform: translateX(0); }
+      100% { top: -100%; transform: translateX(50px); }
+    }
+
+    h1 {
+      text-align: center;
+      color: #d6336c;
+      margin-top: 20px;
+    }
+
+    .controls {
+      text-align: center;
+      margin-bottom: 15px;
+    }
+
+    .controls select {
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid #d6336c;
+      background: #fff0f5;
+      font-weight: bold;
+      color: #a61e4d;
+    }
+
+    .back-button {
+      display: block;
+      margin: 10px auto;
+      text-align: center;
+    }
+
+    .back-button a {
+      text-decoration: none;
+      color: #fff;
+      background-color: #d6336c;
+      padding: 10px 20px;
+      border-radius: 8px;
+      display: inline-block;
+    }
+
+    #gallery {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      padding-bottom: 100px;
+    }
+
+    .img-box {
+      border-radius: 10px;
+      overflow: hidden;
+      background: #fff;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      padding: 5px;
+      max-width: 140px;
+    }
+
+    .img-box img {
+      width: 100%;
+      height: auto;
+      border-radius: 4px;
+      display: block;
+      object-fit: cover;
+      aspect-ratio: 3 / 3;
+      cursor: pointer;
+    }
+
+    /* Lightbox styles */
+    .lightbox {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0,0,0,0.9);
+      justify-content: center;
+      align-items: center;
+    }
+
+    .lightbox img {
+      max-width: 90%;
+      max-height: 90vh;
+      border-radius: 10px;
+    }
+
+    .lightbox:target {
+      display: flex;
+    }
+
+    .lightbox-close {
+      position: absolute;
+      top: 15px;
+      right: 20px;
+      font-size: 2rem;
+      color: #fff;
+      text-decoration: none;
+    }
+
+    .top-btn {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 500;
+      background: #d6336c;
+      color: #fff;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 50%;
+      font-size: 1.2rem;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+  </style>
+</head>
+<body>
+  <div class="hearts-bg"></div>
+  <div class="hearts"></div>
+
+  <h1></h1>
+
+  <div class="controls">
+    <label for="sortSelect">Sort by: </label>
+    <select id="sortSelect">
+      <option value="default">Default</option>
+      <option value="newest">Newest First</option>
+      <option value="oldest">Oldest First</option>
+    </select>
+  </div>
+
+  <div class="back-button">
+    <a href="index.html"> Back to Home</a>
+  </div>
+
+  <div id="gallery"></div>
+
+  <div id="lightbox" class="lightbox">
+    <a href="#" class="lightbox-close">×</a>
+    <img id="lightbox-img" src="" alt="Full view" />
+  </div>
+
+  <button class="top-btn" onclick="window.scrollTo({top:0, behavior:'smooth'})">⬆</button>
+
+  <script>
+    function showMessage(msg) {
+      document.getElementById('gallery').innerHTML = '<p style="color:red;">⚠️ ' + msg + '</p>';
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const title = urlParams.get('title');
+    const folderId = urlParams.get('folderId');
+    const galleryEl = document.getElementById('gallery');
+    const lightbox = document.getElementById('lightbox');
+    const lightboxImg = document.getElementById('lightbox-img');
+
+    if (!folderId) {
+      showMessage('No folderId provided');
+      throw new Error('No folderId provided');
+    }
+
+    document.title = title + ' - Memories';
+    document.querySelector('h1').textContent = title;
+
+    const callbackName = 'renderMemGallery';
+
+    let originalData = [];
+
+    function renderImages(data) {
+      galleryEl.innerHTML = '';
+      data.forEach((src, i) => {
+        const fileId = src.split('id=')[1];
+        const thumbUrl = 'https://drive.google.com/thumbnail?id=' + fileId;
+        const fullUrl = 'https://lh3.googleusercontent.com/d/' + fileId;
+
+        const box = document.createElement('div');
+        box.className = 'img-box';
+
+        const img = document.createElement('img');
+        img.src = thumbUrl;
+        img.alt = title + ' photo ' + (i + 1);
+        img.loading = 'lazy';
+
+        img.addEventListener('click', () => {
+          lightbox.style.display = 'flex';
+          lightboxImg.src = fullUrl;
+        });
+
+        box.appendChild(img);
+        galleryEl.appendChild(box);
+      });
+    }
+
+    window[callbackName] = function(data) {
+      if (!Array.isArray(data) || data.length === 0) {
+        showMessage('No images found in this folder.');
+        return;
+      }
+
+      originalData = [...data];
+      renderImages(originalData);
+    };
+
+    document.getElementById('sortSelect').addEventListener('change', function () {
+      let sortedData = [...originalData];
+      if (this.value === 'newest') {
+        sortedData.reverse();
+      } else if (this.value === 'oldest') {
+        sortedData = originalData;
+      }
+      renderImages(sortedData);
+    });
+
+    lightbox.addEventListener('click', (e) => {
+      if (e.target === lightbox || e.target.className === 'lightbox-close') {
+        lightbox.style.display = 'none';
+        lightboxImg.src = '';
+      }
+    });
+
+    const script = document.createElement('script');
+    script.src = `https://script.google.com/macros/s/AKfycbx4Wg6oqBfwnm-hEI0ZZ4EROsjyDZbaJHwDVIvRlOWIxoQ6zZRil0dcFYzQu11MlKmzDA/exec?folderId=${folderId}&callback=${callbackName}`;
+    document.body.appendChild(script);
+  </script>
+</body>
+</html>
